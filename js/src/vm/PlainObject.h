@@ -18,9 +18,11 @@ struct JS_PUBLIC_API JSContext;
 class JS_PUBLIC_API JSFunction;
 class JS_PUBLIC_API JSObject;
 
-namespace js {
-
+namespace JS {
 struct IdValuePair;
+}  // namespace JS
+
+namespace js {
 
 // Object class for plain native objects created using '{}' object literals,
 // 'new Object()', 'Object.create', etc.
@@ -97,7 +99,7 @@ extern PlainObject* NewPlainObjectWithProtoAndAllocKind(
     NewObjectKind newKind = GenericObject);
 
 extern PlainObject* NewPlainObjectWithProperties(JSContext* cx,
-                                                 IdValuePair* properties,
+                                                 JS::IdValuePair* properties,
                                                  size_t nproperties,
                                                  NewObjectKind newKind);
 

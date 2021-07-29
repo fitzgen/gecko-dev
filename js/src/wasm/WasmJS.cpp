@@ -27,7 +27,6 @@
 
 #include "jsapi.h"
 
-#include "ds/IdValuePair.h"  // js::IdValuePair
 #include "gc/FreeOp.h"
 #include "jit/AtomicOperations.h"
 #include "jit/JitContext.h"
@@ -35,6 +34,7 @@
 #include "jit/Simulator.h"
 #include "js/ForOfIterator.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/IdValuePair.h"           // JS::IdValuePair
 #include "js/Printf.h"
 #include "js/PropertyAndElement.h"  // JS_DefineProperty, JS_GetProperty
 #include "js/PropertySpec.h"        // JS_{PS,FN}{,_END}
@@ -1094,19 +1094,20 @@ static JSString* UTF8CharsToString(JSContext* cx, const char* chars) {
 }
 
 static JSObject* FuncTypeToObject(JSContext* cx, const FuncType& type) {
-  Rooted<IdValueVector> props(cx, IdValueVector(cx));
+  Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
 
   RootedObject parametersObj(cx, ValTypesToArray(cx, type.args()));
   if (!parametersObj ||
-      !props.append(IdValuePair(NameToId(cx->names().parameters),
-                                ObjectValue(*parametersObj)))) {
+      !props.append(JS::IdValuePair(NameToId(cx->names().parameters),
+                                    ObjectValue(*parametersObj)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
 
   RootedObject resultsObj(cx, ValTypesToArray(cx, type.results()));
-  if (!resultsObj || !props.append(IdValuePair(NameToId(cx->names().results),
-                                               ObjectValue(*resultsObj)))) {
+  if (!resultsObj ||
+      !props.append(JS::IdValuePair(NameToId(cx->names().results),
+                                    ObjectValue(*resultsObj)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -1117,25 +1118,26 @@ static JSObject* FuncTypeToObject(JSContext* cx, const FuncType& type) {
 
 static JSObject* TableTypeToObject(JSContext* cx, RefType type,
                                    uint32_t initial, Maybe<uint32_t> maximum) {
-  Rooted<IdValueVector> props(cx, IdValueVector(cx));
+  Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
 
   RootedString elementType(cx, UTF8CharsToString(cx, ToString(type).get()));
-  if (!elementType || !props.append(IdValuePair(NameToId(cx->names().element),
-                                                StringValue(elementType)))) {
+  if (!elementType ||
+      !props.append(JS::IdValuePair(NameToId(cx->names().element),
+                                    StringValue(elementType)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
 
   if (maximum.isSome()) {
-    if (!props.append(IdValuePair(NameToId(cx->names().maximum),
-                                  Int32Value(maximum.value())))) {
+    if (!props.append(JS::IdValuePair(NameToId(cx->names().maximum),
+                                      Int32Value(maximum.value())))) {
       ReportOutOfMemory(cx);
       return nullptr;
     }
   }
 
-  if (!props.append(
-          IdValuePair(NameToId(cx->names().minimum), Int32Value(initial)))) {
+  if (!props.append(JS::IdValuePair(NameToId(cx->names().minimum),
+                                    Int32Value(initial)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -1147,25 +1149,25 @@ static JSObject* TableTypeToObject(JSContext* cx, RefType type,
 static JSObject* MemoryTypeToObject(JSContext* cx, bool shared,
                                     wasm::Pages minPages,
                                     Maybe<wasm::Pages> maxPages) {
-  Rooted<IdValueVector> props(cx, IdValueVector(cx));
+  Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
   if (maxPages) {
     uint32_t maxPages32 = mozilla::AssertedCast<uint32_t>(maxPages->value());
-    if (!props.append(IdValuePair(NameToId(cx->names().maximum),
-                                  Int32Value(maxPages32)))) {
+    if (!props.append(JS::IdValuePair(NameToId(cx->names().maximum),
+                                      Int32Value(maxPages32)))) {
       ReportOutOfMemory(cx);
       return nullptr;
     }
   }
 
   uint32_t minPages32 = mozilla::AssertedCast<uint32_t>(minPages.value());
-  if (!props.append(
-          IdValuePair(NameToId(cx->names().minimum), Int32Value(minPages32)))) {
+  if (!props.append(JS::IdValuePair(NameToId(cx->names().minimum),
+                                    Int32Value(minPages32)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
 
-  if (!props.append(
-          IdValuePair(NameToId(cx->names().shared), BooleanValue(shared)))) {
+  if (!props.append(JS::IdValuePair(NameToId(cx->names().shared),
+                                    BooleanValue(shared)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -1176,17 +1178,17 @@ static JSObject* MemoryTypeToObject(JSContext* cx, bool shared,
 
 static JSObject* GlobalTypeToObject(JSContext* cx, ValType type,
                                     bool isMutable) {
-  Rooted<IdValueVector> props(cx, IdValueVector(cx));
+  Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
 
-  if (!props.append(IdValuePair(NameToId(cx->names().mutable_),
-                                BooleanValue(isMutable)))) {
+  if (!props.append(JS::IdValuePair(NameToId(cx->names().mutable_),
+                                    BooleanValue(isMutable)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
 
   RootedString valueType(cx, UTF8CharsToString(cx, ToString(type).get()));
-  if (!valueType || !props.append(IdValuePair(NameToId(cx->names().value),
-                                              StringValue(valueType)))) {
+  if (!valueType || !props.append(JS::IdValuePair(NameToId(cx->names().value),
+                                                  StringValue(valueType)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -1198,12 +1200,12 @@ static JSObject* GlobalTypeToObject(JSContext* cx, ValType type,
 #  ifdef ENABLE_WASM_EXCEPTIONS
 static JSObject* TagTypeToObject(JSContext* cx,
                                  const wasm::ValTypeVector& params) {
-  Rooted<IdValueVector> props(cx, IdValueVector(cx));
+  Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
 
   RootedObject parametersObj(cx, ValTypesToArray(cx, params));
   if (!parametersObj ||
-      !props.append(IdValuePair(NameToId(cx->names().parameters),
-                                ObjectValue(*parametersObj)))) {
+      !props.append(JS::IdValuePair(NameToId(cx->names().parameters),
+                                    ObjectValue(*parametersObj)))) {
     ReportOutOfMemory(cx);
     return nullptr;
   }
@@ -1402,7 +1404,7 @@ bool WasmModuleObject::imports(JSContext* cx, unsigned argc, Value* vp) {
 #endif    // ENABLE_WASM_TYPE_REFLECTIONS
 
   for (const Import& import : module->imports()) {
-    Rooted<IdValueVector> props(cx, IdValueVector(cx));
+    Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
     if (!props.reserve(3)) {
       return false;
     }
@@ -1412,21 +1414,21 @@ bool WasmModuleObject::imports(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
     props.infallibleAppend(
-        IdValuePair(NameToId(cx->names().module), StringValue(moduleStr)));
+        JS::IdValuePair(NameToId(cx->names().module), StringValue(moduleStr)));
 
     JSString* nameStr = UTF8CharsToString(cx, import.field.get());
     if (!nameStr) {
       return false;
     }
     props.infallibleAppend(
-        IdValuePair(NameToId(cx->names().name), StringValue(nameStr)));
+        JS::IdValuePair(NameToId(cx->names().name), StringValue(nameStr)));
 
     JSString* kindStr = KindToString(cx, names, import.kind);
     if (!kindStr) {
       return false;
     }
     props.infallibleAppend(
-        IdValuePair(NameToId(names.kind), StringValue(kindStr)));
+        JS::IdValuePair(NameToId(names.kind), StringValue(kindStr)));
 
 #ifdef ENABLE_WASM_TYPE_REFLECTIONS
     RootedObject typeObj(cx);
@@ -1469,8 +1471,8 @@ bool WasmModuleObject::imports(JSContext* cx, unsigned argc, Value* vp) {
 #  endif  // ENABLE_WASM_EXCEPTIONS
     }
 
-    if (!typeObj || !props.append(IdValuePair(NameToId(names.type),
-                                              ObjectValue(*typeObj)))) {
+    if (!typeObj || !props.append(JS::IdValuePair(NameToId(names.type),
+                                                  ObjectValue(*typeObj)))) {
       ReportOutOfMemory(cx);
       return false;
     }
@@ -1520,7 +1522,7 @@ bool WasmModuleObject::exports(JSContext* cx, unsigned argc, Value* vp) {
 #endif  // ENABLE_WASM_TYPE_REFLECTIONS
 
   for (const Export& exp : module->exports()) {
-    Rooted<IdValueVector> props(cx, IdValueVector(cx));
+    Rooted<JS::IdValueVector> props(cx, JS::IdValueVector(cx));
     if (!props.reserve(2)) {
       return false;
     }
@@ -1530,14 +1532,14 @@ bool WasmModuleObject::exports(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
     props.infallibleAppend(
-        IdValuePair(NameToId(cx->names().name), StringValue(nameStr)));
+        JS::IdValuePair(NameToId(cx->names().name), StringValue(nameStr)));
 
     JSString* kindStr = KindToString(cx, names, exp.kind());
     if (!kindStr) {
       return false;
     }
     props.infallibleAppend(
-        IdValuePair(NameToId(names.kind), StringValue(kindStr)));
+        JS::IdValuePair(NameToId(names.kind), StringValue(kindStr)));
 
 #ifdef ENABLE_WASM_TYPE_REFLECTIONS
     RootedObject typeObj(cx);
@@ -1574,8 +1576,8 @@ bool WasmModuleObject::exports(JSContext* cx, unsigned argc, Value* vp) {
 #  endif  // ENABLE_WASM_EXCEPTIONS
     }
 
-    if (!typeObj || !props.append(IdValuePair(NameToId(names.type),
-                                              ObjectValue(*typeObj)))) {
+    if (!typeObj || !props.append(JS::IdValuePair(NameToId(names.type),
+                                                  ObjectValue(*typeObj)))) {
       ReportOutOfMemory(cx);
       return false;
     }

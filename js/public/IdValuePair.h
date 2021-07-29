@@ -4,15 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef ds_IdValuePair_h
-#define ds_IdValuePair_h
+#ifndef js_IdValuePair_h
+#define js_IdValuePair_h
 
-#include "gc/Tracer.h"
 #include "js/GCVector.h"
 #include "js/Id.h"
 #include "js/Value.h"
 
-namespace js {
+class JS_PUBLIC_API JSTracer;
+
+namespace JS {
 
 struct IdValuePair {
   JS::Value value;
@@ -22,14 +23,11 @@ struct IdValuePair {
   explicit IdValuePair(jsid idArg) : value(JS::UndefinedValue()), id(idArg) {}
   IdValuePair(jsid idArg, const Value& valueArg) : value(valueArg), id(idArg) {}
 
-  void trace(JSTracer* trc) {
-    TraceRoot(trc, &value, "IdValuePair::value");
-    TraceRoot(trc, &id, "IdValuePair::id");
-  }
+  void trace(JSTracer* trc);
 };
 
 using IdValueVector = JS::GCVector<IdValuePair, 8>;
 
-} /* namespace js */
+} /* namespace JS */
 
-#endif /* ds_IdValuePair_h */
+#endif /* js_IdValuePair_h */

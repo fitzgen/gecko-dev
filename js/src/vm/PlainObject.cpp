@@ -14,8 +14,8 @@
 
 #include "jspubtd.h"  // JSProto_Object
 
-#include "ds/IdValuePair.h"  // js::IdValuePair
 #include "gc/AllocKind.h"    // js::gc::AllocKind
+#include "js/IdValuePair.h"  // JS::IdValuePair
 #include "vm/JSContext.h"    // JSContext
 #include "vm/JSFunction.h"   // JSFunction
 #include "vm/JSObject.h"     // JSObject, js::GetPrototypeFromConstructor
@@ -107,7 +107,7 @@ PlainObject* PlainObject::createWithTemplateFromDifferentRealm(
 }
 
 static bool AddPlainObjectProperties(JSContext* cx, HandlePlainObject obj,
-                                     IdValuePair* properties,
+                                     JS::IdValuePair* properties,
                                      size_t nproperties) {
   RootedId propid(cx);
   RootedValue value(cx);
@@ -215,7 +215,7 @@ PlainObject* js::NewPlainObjectWithProtoAndAllocKind(JSContext* cx,
 }
 
 PlainObject* js::NewPlainObjectWithProperties(JSContext* cx,
-                                              IdValuePair* properties,
+                                              JS::IdValuePair* properties,
                                               size_t nproperties,
                                               NewObjectKind newKind) {
   gc::AllocKind allocKind = gc::GetGCObjectKind(nproperties);

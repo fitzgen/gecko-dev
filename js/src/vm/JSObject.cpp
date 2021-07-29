@@ -31,7 +31,6 @@
 #include "builtin/String.h"
 #include "builtin/Symbol.h"
 #include "builtin/WeakSetObject.h"
-#include "ds/IdValuePair.h"  // js::IdValuePair
 #include "frontend/BytecodeCompiler.h"
 #include "gc/Policy.h"
 #include "js/CallAndConstruct.h"  // JS::IsCallable, JS::IsConstructor
@@ -39,6 +38,7 @@
 #include "js/friend/DumpFunctions.h"  // js::DumpObject
 #include "js/friend/ErrorMessages.h"  // JSErrNum, js::GetErrorMessage, JSMSG_*
 #include "js/friend/WindowProxy.h"    // js::IsWindow, js::ToWindowProxyIfWindow
+#include "js/IdValuePair.h"           // JS::IdValuePair
 #include "js/MemoryMetrics.h"
 #include "js/PropertyDescriptor.h"  // JS::FromPropertyDescriptor
 #include "js/PropertySpec.h"        // JSPropertySpec

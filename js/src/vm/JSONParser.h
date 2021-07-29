@@ -12,7 +12,7 @@
 
 #include "jspubtd.h"
 
-#include "ds/IdValuePair.h"
+#include "js/IdValuePair.h"
 #include "vm/StringType.h"
 
 namespace js {
@@ -69,7 +69,7 @@ class MOZ_STACK_CLASS JSONParserBase {
 
   // State for an object that is currently being parsed. This includes all
   // the key/value pairs that have been seen so far.
-  typedef GCVector<IdValuePair, 10> PropertyVector;
+  typedef GCVector<JS::IdValuePair, 10> PropertyVector;
 
   // Possible states the parser can be in between values.
   enum ParserState {
