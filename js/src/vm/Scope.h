@@ -1057,6 +1057,11 @@ inline bool Scope::is<EvalScope>() const {
   return kind_ == ScopeKind::Eval || kind_ == ScopeKind::StrictEval;
 }
 
+namespace frontend {
+using ParserBindingName = AbstractBindingName<TaggedParserAtomIndex>;
+using ParserBindingNameVector = Vector<ParserBindingName, 6>;
+}  // namespace frontend
+
 //
 // Scope corresponding to the toplevel script in an ES module.
 //
@@ -1135,6 +1140,16 @@ class ModuleScope : public Scope {
 
   ModuleObject* module() const { return data().module; }
   void initModule(ModuleObject* mod) { return data().module.init(mod); }
+
+  static void initializeBindingData(
+      ParserData* data, uint32_t numBindings,
+      const frontend::ParserBindingNameVector& imports,
+      uint32_t SlotInfo::*varStart,
+      const frontend::ParserBindingNameVector& vars,
+      uint32_t SlotInfo::*letStart,
+      const frontend::ParserBindingNameVector& lets,
+      uint32_t SlotInfo::*constStart,
+      const frontend::ParserBindingNameVector& consts);
 
   // Off-thread compilation needs to calculate environmentChainLength for
   // an emptyGlobalScope where the global may not be available.

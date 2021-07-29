@@ -9,6 +9,7 @@
 #include "js/Modules.h"
 
 #include "mozilla/Assertions.h"  // MOZ_ASSERT
+#include "mozilla/RefPtr.h"      // do_AddRef, RefPtr
 #include "mozilla/Utf8.h"        // mozilla::Utf8Unit
 
 #include <stdint.h>  // uint32_t
@@ -18,11 +19,12 @@
 
 #include "builtin/ModuleObject.h"  // js::FinishDynamicModuleImport, js::{,Requested}ModuleObject
 #include "frontend/BytecodeCompilation.h"  // js::frontend::InstantiateStencils
-#include "frontend/BytecodeCompiler.h"     // js::frontend::CompileModule
+#include "frontend/BytecodeCompiler.h"  // js::frontend::CompileModule, js::frontend::ParseModuleToExtensibleStencil
 #include "frontend/CompilationStencil.h"   // js::frontend::CompilationStencil
 #include "js/Context.h"                    // js::AssertHeapIsIdle
 #include "js/RootingAPI.h"                 // JS::MutableHandle
 #include "js/Value.h"                      // JS::Value
+#include "vm/EnvironmentObject.h"          // js::ModuleEnvironmentObject
 #include "vm/JSContext.h"               // CHECK_THREAD, JSContext
 #include "vm/JSObject.h"                // JSObject
 #include "vm/Runtime.h"                 // JSRuntime
@@ -32,9 +34,7 @@
 
 using mozilla::Utf8Unit;
 
-using js::AssertHeapIsIdle;
-using js::ModuleObject;
-using js::RequestedModuleObject;
+using namespace js;
 
 JS_PUBLIC_API JS::ModuleResolveHook JS::GetModuleResolveHook(JSRuntime* rt) {
   AssertHeapIsIdle();
@@ -249,4 +249,120 @@ JS_PUBLIC_API JSString* JS::GetModuleRequestSpecifier(
   cx->check(moduleRequestArg);
 
   return moduleRequestArg->as<js::ModuleRequestObject>().specifier();
+}
+
+JS_PUBLIC_API JSObject* JS::CreateModule(JSContext* cx,
+                                         Handle<JS::IdValueVector> exports) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+
+  if (exports.length() > size_t(UINT32_MAX)) {
+    JS_ReportErrorASCII(cx, "may only have UINT32_MAX or fewer exports");
+    return nullptr;
+  }
+  uint32_t exportsLength = uint32_t(exports.length());
+
+  // Compile an empty string into a module stencil so that it is correctly
+  // stubbed out.
+
+  JS::CompileOptions compileOptions(cx);
+  compileOptions.setFileAndLine("<synthetic module>", 1).setNoScriptRval(true).setModule();
+
+  Rooted<frontend::CompilationInput> compilationInput(
+      cx, frontend::CompilationInput(compileOptions));
+
+  JS::SourceText<mozilla::Utf8Unit> sourceText;
+  if (!sourceText.init(cx, "", 0, JS::SourceOwnership::Borrowed)) {
+    return nullptr;
+  }
+
+  auto compilationStencil = frontend::ParseModuleToExtensibleStencil(
+      cx, compilationInput.get(), sourceText);
+  if (!compilationStencil) {
+    return nullptr;
+  }
+
+  // Add slots and export entries for the given exports to the stencil.
+
+  size_t scopeNamesSize =
+      SizeOfScopeData<ModuleScope::ParserData>(exportsLength);
+  auto scopeNames =
+      compilationStencil->alloc.newWithSize<ModuleScope::ParserData>(
+          scopeNamesSize, exportsLength);
+  if (!scopeNames) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+
+  frontend::ParserBindingNameVector imports(cx);
+  frontend::ParserBindingNameVector vars(cx);
+  frontend::ParserBindingNameVector lets(cx);
+  frontend::ParserBindingNameVector consts(cx);
+
+  if (!compilationStencil->moduleMetadata->localExportEntries.reserve(
+          exports.length())) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+  if (!vars.reserve(exports.length())) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+  for (size_t i = 0; i < exports.length(); i++) {
+    MOZ_ASSERT(exports[i].get().id.isAtom(),
+               "export names given to `JS::CreateModule` must be atoms");
+    Rooted<JSAtom*> idAtom(cx, exports[i].get().id.toAtom());
+    MOZ_ASSERT(idAtom);
+    auto atom = compilationStencil->parserAtoms.internJSAtom(
+        cx, compilationInput.get().atomCache, idAtom);
+    if (atom == frontend::TaggedParserAtomIndex::null()) {
+      return nullptr;
+    }
+    auto entry = frontend::StencilModuleEntry::exportAsEntry(atom, atom, 0, 0);
+    MOZ_ALWAYS_TRUE(compilationStencil->moduleMetadata->localExportEntries.append(entry));
+
+    bool closedOver = true;
+    MOZ_ALWAYS_TRUE(vars.append(frontend::ParserBindingName(atom, closedOver)));
+  }
+
+  ModuleScope::initializeBindingData(
+      scopeNames, exportsLength, imports,
+      &frontend::ParserModuleScopeSlotInfo::varStart, vars,
+      &frontend::ParserModuleScopeSlotInfo::letStart, lets,
+      &frontend::ParserModuleScopeSlotInfo::constStart, consts);
+  MOZ_ASSERT(compilationStencil->scopeNames.length() == 1);
+  compilationStencil->scopeNames[0] = scopeNames;
+
+  MOZ_ASSERT(compilationStencil->scopeData.length() == 1);
+  MOZ_ASSERT(compilationStencil->scopeData[0].hasEnvironmentShape());
+  compilationStencil->scopeData[0].numEnvironmentSlots_ = exportsLength;
+
+  // Instantiate the stencil to create the module object and its shape,
+  // environment, etc...
+
+  RefPtr<ScriptSource> scriptSource(cx->new_<ScriptSource>());
+  if (!scriptSource || !scriptSource->initFromOptions(cx, compileOptions)) {
+    return nullptr;
+  }
+  frontend::BorrowingCompilationStencil stencil(*compilationStencil);
+
+  Rooted<frontend::CompilationGCOutput> gcOutput(cx);
+  if (!frontend::InstantiateStencils(cx, compilationInput.get(), stencil,
+                                     gcOutput.get())) {
+    return nullptr;
+  }
+
+  // Initialize the module's environment with the export values.
+
+  RootedModuleObject module(cx, gcOutput.get().module);
+  RootedModuleEnvironmentObject env(cx, &module->initialEnvironment());
+  for (size_t i = 0; i < exports.length(); i++) {
+    RootedId id(cx, exports[i].get().id);
+    RootedValue val(cx, exports[i].get().value);
+    if (!JS_SetPropertyById(cx, env, id, val)) {
+      return nullptr;
+    }
+  }
+
+  return module;
 }

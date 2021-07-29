@@ -14,6 +14,7 @@
 #include "jstypes.h"  // JS_PUBLIC_API
 
 #include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions
+#include "js/IdValuePair.h"     // JS::IdValueVector
 #include "js/RootingAPI.h"      // JS::{Mutable,}Handle
 #include "js/Value.h"           // JS::Value
 
@@ -230,6 +231,18 @@ extern JS_PUBLIC_API JSObject* CreateModuleRequest(
     JSContext* cx, Handle<JSString*> specifierArg);
 extern JS_PUBLIC_API JSString* GetModuleRequestSpecifier(
     JSContext* cx, Handle<JSObject*> moduleRequestArg);
+
+/**
+ * Create a new, unlinked module record with the given exports.
+ *
+ * This can be used, for example, to create a "native" module that exports a
+ * bunch of |JSNative| functions, and for which there is no associated JS source
+ * text.
+ *
+ * This API is still experimental and has not yet been fully optimized.
+ */
+extern JS_PUBLIC_API JSObject* CreateModule(JSContext* cx,
+                                            Handle<IdValueVector> exports);
 
 }  // namespace JS
 

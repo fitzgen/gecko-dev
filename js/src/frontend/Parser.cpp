@@ -85,14 +85,13 @@ using JS::AutoGCRooter;
 using JS::ReadOnlyCompileOptions;
 using JS::RegExpFlags;
 
-namespace js::frontend {
+namespace js {
+namespace frontend {
 
 using DeclaredNamePtr = ParseContext::Scope::DeclaredNamePtr;
 using AddDeclaredNamePtr = ParseContext::Scope::AddDeclaredNamePtr;
 using BindingIter = ParseContext::Scope::BindingIter;
 using UsedNamePtr = UsedNameTracker::UsedNameMap::Ptr;
-
-using ParserBindingNameVector = Vector<ParserBindingName, 6>;
 
 template <class T, class U>
 static inline void PropagateTransitiveParseFlags(const T* inner, U* outer) {
@@ -1076,6 +1075,23 @@ static MOZ_ALWAYS_INLINE void InitializeBindingData(
   MOZ_ASSERT(PointerRangeSize(start, end) == count);
   data->length = count;
 }
+
+}  // namespace frontend
+
+/* static */ void ModuleScope::initializeBindingData(
+    ModuleScope::ParserData* data, uint32_t numBindings,
+    const frontend::ParserBindingNameVector& imports,
+    uint32_t ModuleScope::SlotInfo::*varStart,
+    const frontend::ParserBindingNameVector& vars,
+    uint32_t ModuleScope::SlotInfo::*letStart,
+    const frontend::ParserBindingNameVector& lets,
+    uint32_t ModuleScope::SlotInfo::*constStart,
+    const frontend::ParserBindingNameVector& consts) {
+  InitializeBindingData(data, numBindings, imports, varStart, vars, letStart,
+                        lets, constStart, consts);
+}
+
+namespace frontend {
 
 Maybe<GlobalScope::ParserData*> NewGlobalScopeData(JSContext* cx,
                                                    ParseContext::Scope& scope,
@@ -12150,4 +12166,5 @@ template class Parser<SyntaxParseHandler, Utf8Unit>;
 template class Parser<FullParseHandler, char16_t>;
 template class Parser<SyntaxParseHandler, char16_t>;
 
-}  // namespace js::frontend
+}  // namespace frontend
+}  // namespace js

@@ -58,7 +58,6 @@ class BigIntStencil;
 class StencilXDR;
 
 using BaseParserScopeData = AbstractBaseScopeData<TaggedParserAtomIndex>;
-using ParserBindingName = AbstractBindingName<TaggedParserAtomIndex>;
 
 template <typename Scope>
 using ParserScopeSlotInfo = typename Scope::SlotInfo;
@@ -456,6 +455,11 @@ class ScopeStencil {
     }
     return false;
   }
+
+  // So that this can update the number of environment slots in an existing
+  // `ScopeStencil`.
+  friend JSObject* JS::CreateModule(JSContext* cx,
+                                    Handle<JS::IdValueVector> exports);
 };
 
 // See JSOp::Lambda for interepretation of this index.
