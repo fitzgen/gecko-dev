@@ -27,6 +27,7 @@ UNIFIED_SOURCES += [
     "testChromeBuffer.cpp",
     "testCompileNonSyntactic.cpp",
     "testCompileUtf8.cpp",
+    "testCreateModule.cpp",
     "testDateToLocaleString.cpp",
     "testDebugger.cpp",
     "testDeduplication.cpp",
