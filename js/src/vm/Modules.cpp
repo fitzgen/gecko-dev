@@ -13,17 +13,21 @@
 
 #include <stdint.h>  // uint32_t
 
+#include "jsapi.h"    // JS_StringToId
 #include "jstypes.h"  // JS_PUBLIC_API
 
 #include "builtin/ModuleObject.h"  // js::FinishDynamicModuleImport, js::{,Requested}ModuleObject
-#include "frontend/BytecodeCompiler.h"  // js::frontend::CompileModule
-#include "js/Context.h"                 // js::AssertHeapIsIdle
-#include "js/RootingAPI.h"              // JS::MutableHandle
-#include "js/Value.h"                   // JS::Value
+#include "frontend/BytecodeCompilation.h"  // js::frontend::InstantiateStencils
+#include "frontend/BytecodeCompiler.h"     // js::frontend::CompileModule
+#include "frontend/CompilationStencil.h"   // js::frontend::CompilationStencil
+#include "js/Context.h"                    // js::AssertHeapIsIdle
+#include "js/RootingAPI.h"                 // JS::MutableHandle
+#include "js/Value.h"                      // JS::Value
 #include "vm/JSContext.h"               // CHECK_THREAD, JSContext
 #include "vm/JSObject.h"                // JSObject
 #include "vm/Runtime.h"                 // JSRuntime
 
+#include "vm/JSAtom-inl.h"     // js::AtomToId
 #include "vm/JSContext-inl.h"  // JSContext::{c,releaseC}heck
 
 using mozilla::Utf8Unit;
@@ -133,6 +137,47 @@ JS_PUBLIC_API bool JS::ModuleEvaluate(JSContext* cx,
   cx->releaseCheck(moduleRecord);
 
   return ModuleObject::Evaluate(cx, moduleRecord.as<ModuleObject>(), rval);
+}
+
+JS_PUBLIC_API bool JS::GetModuleExport(JSContext* cx,
+                                       Handle<JSObject*> moduleRecord,
+                                       Handle<JSString*> exportName,
+                                       MutableHandleValue exportValue,
+                                       bool* moduleHadExport) {
+  AssertHeapIsIdle();
+  CHECK_THREAD(cx);
+  cx->releaseCheck(moduleRecord);
+  cx->releaseCheck(exportName);
+  MOZ_ASSERT(moduleHadExport);
+
+  MOZ_ASSERT(moduleRecord->is<ModuleObject>());
+  js::RootedModuleObject module(cx, &moduleRecord->as<ModuleObject>());
+
+  js::RootedModuleNamespaceObject ns(
+      cx, js::ModuleObject::GetOrCreateModuleNamespace(cx, module));
+  if (!ns) {
+    return false;
+  }
+
+  RootedId exportId(cx);
+  if (!JS_StringToId(cx, exportName, &exportId)) {
+    return false;
+  }
+  Rooted<mozilla::Maybe<PropertyDescriptor>> desc(cx);
+  if (!JS_GetOwnPropertyDescriptorById(cx, ns, exportId, &desc)) {
+    return false;
+  }
+
+  if (desc.get().isNothing()) {
+    *moduleHadExport = false;
+    return true;
+  }
+
+  // All ModuleNamespaceObject properties are values.
+  MOZ_ASSERT(desc.get()->hasValue());
+  exportValue.set(desc.get()->value());
+  *moduleHadExport = true;
+  return true;
 }
 
 JS_PUBLIC_API bool JS::ThrowOnModuleEvaluationFailure(

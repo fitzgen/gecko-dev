@@ -168,6 +168,21 @@ extern JS_PUBLIC_API bool ModuleEvaluate(JSContext* cx,
                                          MutableHandleValue rval);
 
 /*
+ * Get the value that a module exports as |exportName|.
+ *
+ * If the module does export a value under the name |exportName|, then
+ * |exportValue| is set to that value and |*moduleHadExport| is set to true.
+ *
+ * If the module does _not_ export a value under the name |exportName|, then
+ * |exportValue| is not modified and |*moduleHadExport| is set to false.
+ */
+extern JS_PUBLIC_API bool GetModuleExport(JSContext* cx,
+                                          Handle<JSObject*> moduleRecord,
+                                          Handle<JSString*> exportName,
+                                          MutableHandleValue exportValue,
+                                          bool* moduleHadExport);
+
+/*
  * If a module evaluation fails, unwrap the resulting evaluation promise
  * and rethrow.
  *
