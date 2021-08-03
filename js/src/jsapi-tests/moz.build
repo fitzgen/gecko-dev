@@ -63,6 +63,7 @@ UNIFIED_SOURCES += [
     "testGCStoreBufferRemoval.cpp",
     "testGCUniqueId.cpp",
     "testGCWeakCache.cpp",
+    "testGetModuleExport.cpp",
     "testGetPropertyDescriptor.cpp",
     "testHashTable.cpp",
     "testIndexToString.cpp",
